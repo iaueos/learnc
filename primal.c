@@ -2,9 +2,22 @@
 #include "string.h"
 #include "stddef.h"
 
+#define IDLE      0
+#define TEST      1
+#define NEAR      2
+#define NUM       3
+#define MAX       4
+#define ASK       5
+#define SPACE     6
+#define TAB       7
+#define PER       8
+#define PAD       9
+#define HELP     10
+#define HINT     11
+
 typedef unsigned long long NU;
 
-unsigned char dv[] =
+unsigned char prima[] =
 { 2,  3,  5,  7, 11, 13, 17, 19, 23, 29,
  31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
  73, 79, 83, 89, 97,101,103,107,109,113,
@@ -12,7 +25,11 @@ unsigned char dv[] =
 179,181,191,193,197,199,211,223,227,229,
 233,239,241,251};
 
-const char * cmd[] = {"","test","near","num","max","?","space","tab","per","pad","help", "hint"};
+NU primax = 251;
+
+const char * cmd[] = {"",
+"test","near","num","max","?",
+"space","tab","per","pad","help", "hint"};
 
 const char * help=
 "primal <from> [<to>] <command>\n\
@@ -110,13 +127,13 @@ char * numSeparator = "\n";
 int isprime(unsigned char n)
 {
     unsigned char a = 0;
-    unsigned char b = sizeof(dv) / sizeof(dv[0]);
+    unsigned char b = sizeof(prima) / sizeof(prima[0]);
 
     int x = 0;
 
     while (a < b)
     {
-        if (n == dv[a]) {
+        if (n == prima[a]) {
             x = 1;
             break;
         }
@@ -137,21 +154,21 @@ int isPrime(NU n)
     int r = 0;
     NU f = 0;
     int i;
-    if (n < 253) {
+    if (n < primax + 2) {
         return isprime(n);
     } else {
         NU re = 1;
-        NU m = 253;
+        NU m = primax + 2;
         unsigned short a = 4;
         NU d = 0;
 
-        int j = sizeof dv;
-        // trial division of prime up to last dv[]
+        int j = sizeof(prima) / sizeof(prima[0]);
+        // trial division of prime up to last prima[]
         for (i = 0; (i < j) && (re > 0); i++) {
-            re = n % ((NU) dv[i]);
+            re = n % ((NU) prima[i]);
             if (re == 0)
             {
-                f = dv[i];
+                f = prima[i];
                 break;
             }
         }
@@ -183,18 +200,42 @@ int isPrime(NU n)
 
 NU near(NU x, unsigned char *a)
 {
-    NU r;
-    r = x % 6;
-    if (r <= 1)
-    {
-        x+= ((NU) 1-r);
-        *a = 4;
-    }
-    else if (r>1)
-    {
-        x += ((NU) 5 - r);
-        *a = 2;
-    }
+	NU r;
+	r = x % 6;
+
+	if (x < primax)
+	{
+		unsigned char b = sizeof(prima) / sizeof(prima[0]);
+
+		int i;
+		NU prev= prima[0];
+		for (i=0;i<b ; i++) {
+			if (prima[i]>x && (prev>x)) {
+				x = prev;				
+				break;
+			}
+			else if (prima[i]==x)
+				break;
+			else 
+				prev = prima[i];			
+		}
+		*a = 1;
+	} else {
+		if (r <= 1)
+		{
+			x+= ((NU) 1-r);
+			*a = 4;
+		}
+		else if (r>1)
+		{
+			x += ((NU) 5 - r);
+			*a = 2;
+		}
+		while (!isPrime(x)) {
+			x+=*a;
+			*a^=6;
+		}
+	}
     return x;
 }
 
@@ -203,19 +244,19 @@ int iPer = 0;
 
 void say(NU l)
 {
-	if(iPer>0)
-		printf(numSeparator);
+    if(iPer++>0)
+        printf(numSeparator);
 
-    printf(numFormat, l);	
-	
-	if (++iPer>=Per) 
-	{	
-		printf(LF);		
-		iPer = 0;
-	}
+    printf(numFormat, l);
+
+    if (Per>0 && iPer>=Per)
+    {
+        printf(LF);
+        iPer = 0;
+    }
 }
 
-NU num(char *instr)
+NU value(char *instr)
 {
   NU retval;
   int i;
@@ -229,7 +270,7 @@ NU num(char *instr)
   return retval;
 }
 
-int isnum(char *c)
+int number(char *c)
 {
     int r = 1;
     for(;*c && r;c++) {
@@ -238,7 +279,7 @@ int isnum(char *c)
     return r;
 }
 
-int isend(char * c) {
+int eol(char * c) {
     return (*c == '\n') || (*c == '\r');
 }
 
@@ -255,172 +296,184 @@ void trimend(char *str) {
 
 void (*doit)(char * s);
 
-
-
 void isnumy(char * s){
-    if (isnum(s)) {				
-        printf("%s", s);		
-	}
+    if (number(s)) {
+		if (iPer++> 0) printf(numSeparator); 
+		
+		printf("%s", s);
+		
+		if (Per>0 && iPer>=Per)
+		{
+			printf(LF);
+			iPer = 0;
+		}
+    }
 }
 
 void nearby(char * s) {
     unsigned char rol = 0;
     NU n = 0;
-    if (isnum(s)) {
-        n = num(s);
+    if (number(s)) {
+        n = value(s);
         if (n!=0) {
             n = near(n, &rol);
-            say(n);			
+            say(n);
         }
     }
 }
 
 int primaly(char * s) {
     NU z=0;
-    if (isnum(s))
+    if (number(s))
     {
-        z = num(s);
+        z = value(s);
         if (isPrime(z)) {
             say(z);
-		}
+        }
     }
+    return 0;
 }
 
 int main(int argc, char *argv[])
 {
     NU i, x, y, z;
     unsigned char a = 0, b=0;
-    int act = 0;
+    int act = IDLE;
     int j = 0;
     char * t;
     char s[255];
-	int pad = 20;
-	j = sizeof dv;
-	NU dvMax = (NU) dv[j-1];
-	// printf("dv length:%d  dv Max:%llu\n", j, dvMax );
+    int pad = 20;
+    j = sizeof(prima) / sizeof(prima[0]);     
+
     x=0;
     y=0;
     i=0;
 
     if (argc <= 1) {
-        act = 5;
+        act = ASK;
     }
 
     for (a=1; a<argc; a++) {
-        if (isnum(argv[a]))
+        if (number(argv[a]))
         {
             if ((x==0)) {
-                x = num(argv[a]);
+                x = value(argv[a]);
             } else if ((y==0)) {
-                y = num(argv[a]);
+                y = value(argv[a]);
             }
         }
         else
         {
             t = argv[a];
-            act= 0;
-            
-            for (b=1; b<cmd.length; b++) {
+            act = IDLE;
+			int alen = sizeof(cmd) / sizeof(cmd[0]); 
+            for (b=1; b< alen; b++) {
                 if (strcmpi(t, cmd[b])==0)
                 {
-					if (b == 6)
-					{
-						numSeparator= " ";
-						
-					}
-					else if(b == 7)
-					{
-						numSeparator = "\t";
-					}
-					else if(b == 8) 
-					{
-						Per = (a<(argc-1))? num(argv[a+1]): 1;
-						a ++;
-						
+                    if (b == SPACE)
+                    {
+                        numSeparator= " ";
+                    }
+                    else if(b == TAB)
+                    {
+                        numSeparator = "\t";
+                    }
+                    else if(b == PER)
+                    {
+                        Per = (a<(argc-1))? value(argv[a+1]): -1;
+                        a ++;
+						if (Per < 0)  {							
+							numSeparator = " ";
+						}
 						if (strcmp(numSeparator,LF)==0)
 							numSeparator = "\t";
-					}
-					else if (b==9)
-					{
-						if ((a < argc-1) && isnum(argv[a+1]))
-						{
-							pad = num(argv[a+1]);
-							a++;
-						}
-						sprintf(s,"%%%d%s", pad, NUM_FMT);
-						strcpy(numFormat, s);
-						
-					}
-					else 
-					{
-						act = b;                    
-					}					
+                    }
+                    else if (b == PAD)
+                    {
+                        if ((a < argc-1) && number(argv[a+1]))
+                        {
+                            pad = value(argv[a+1]);
+                            a++;
+                        }
+                        sprintf(s,"%%%d%s", pad, NUM_FMT);
+                        strcpy(numFormat, s);
+                    }
+                    else
+                    {
+                        act = b;
+                    }
                 }
-            }			
+            }
         }
     }
-
     switch(act) {
-        case 1: doit = &primaly; break;
-		case 2: doit = &nearby; break;
-		case 3: doit = &isnumy; break; 
-		default: doit = &primaly; break;
-	}
-		
-	if ((act>=1) && (act<=3))
-	{
-		iPer = 0;
-		
-		for (a=1; a<argc; a++) {
-			doit(argv[a]);
-		}
+        case TEST: doit = &primaly; break;
+        case NEAR: doit = &nearby; break;
+        case NUM:  doit = &isnumy; break;
+        default:   doit = &primaly; break;
+    }
 
-		if (x==0 && y==0) {
-			iPer = 0;
-			
-			while (fgets(s, sizeof s, stdin) != NULL && !isend(s)) {
-				trimend(s);
-				doit(s);
-			}
-		}
-	} else if (act==4) {		
-		say(maxval());
-	} 
-    if ((act==5)||(act==10)) {
+    if ((act>=1) && (act<=3))
+    {
+        iPer = 0;
+
+        for (a=1; a<argc; a++) {
+            doit(argv[a]);
+        }
+
+        if (x==0 && y==0) {
+            iPer = 0;
+            while (fgets(s, sizeof s, stdin) != NULL && !eol(s)) {
+                trimend(s);
+                doit(s);
+            }
+        }
+    } else if (act==MAX) {		
+        say(maxval());		
+    }
+    if ((act==ASK)||(act==HELP)) {
         printf(help);
     }
-    if (act==11)
+    if (act==HINT)
         printf(hints);
-    
-    if (act > 0) return(0);
+
+    if (act > IDLE) 
+		return(0);
 
     if ((x!= 0) && (y==0))
         y = maxval();
 
     i = x;
     a = 0;
-	
-	if (strcmp(numSeparator,LF)==0) 
-	{
-		numSeparator = "\0";
-	}
-	iPer= 0;
-    while ((i <= y) && (i <= dvMax) && (i>=x))
+
+    if (strcmp(numSeparator,LF)==0)
     {
-        if (isprime(i)) {			
-            say(i);
-            if (i>3) i++;
-        }
-        ++i;
+        numSeparator = "\0";
     }
+    iPer= 0;
     i = near(i, &a);
 
-    while ((i <= y) && (i >= x)) {
+	int loops = 0;
+	NU MAXLOOP = ((y-x)/3) + 20;
+	
+    while ((i <= y) && (i >= x) && (loops++<MAXLOOP)) {
         if (isPrime(i)) {
             say(i);
+        } 
+        		
+		if (i < primax) {
+			
+			NU ii = near(i, &a);
+			
+			if (ii == i) {
+				ii = near(i+1, &a);
+			}
+			i = ii;
+			a = 1;
 		}
-        i += a;
-        a ^= 6;
+		else  {
+			i += a;
+			a ^= 6;
+		}
     }
-
 }
